@@ -1,0 +1,80 @@
+.corousel-container {
+  display: flex;
+  flex-direction: column; /* Change to column to stack heading above carousel */
+  background-color: darkred; /* Background color remains dark red */
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.corousel-heading {
+  color: white; /* Text color remains white */
+  font-size: 24px; /* Font size remains the same */
+  margin-bottom: 20px; /* Changed margin to bottom for spacing below heading */
+}
+
+.carousel {
+  display: flex;
+  justify-content: center;
+  background-color: darkred; /* Background color remains dark red */
+  align-items: center;
+  overflow: hidden;
+  padding: 20px; /* Padding remains the same */
+  border-radius: 10px; /* Border-radius remains the same */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Box-shadow remains the same */
+}
+
+
+.carousel-images {
+  width: 100%;
+  height: auto;
+  flex-shrink: 0;
+  margin-right: 50px;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+}
+
+.carousel-image {
+  height: 400px; /* Set a fixed height for all images */
+  width: auto; /* Width will adjust to maintain aspect ratio */
+  flex-shrink: 0;
+  transition: transform 0.5s ease-in-out;
+  margin-right: 20px; /* Increased margin for more spacing */
+  align-items: center;
+  border-radius: 10px; /* Added border-radius for rounded corners */
+  object-fit: cover; /* Ensures the image covers the area while maintaining aspect ratio */
+}
+
+.carousel-button {
+  background-color: white; /* Set button background color to white */
+  border: none;
+  color: white; /* Set text color to dark red for contrast */
+  padding: 15px;
+  border-radius: 50%; /* Changed to 50% for a perfect circle */
+  cursor: pointer;
+  z-index: 1;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Added transition for color change */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Added shadow for button depth */
+}
+
+.carousel-button:hover {
+  background-color: #ffcccb; /* Set hover background color to light pink */
+  color: white; /* Change text color to white on hover */
+}
+
+
+.carousel-button-prev {
+  position: relative;
+  left: 50px; /* Adjusted position for better alignment */
+  transform: translateY(-50%);
+}
+
+.carousel-button-next {
+  position: relative;
+  right: 50px; /* Adjusted position for better alignment */
+  transform: translateY(-50%);
+}

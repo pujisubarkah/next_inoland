@@ -1,0 +1,37 @@
+.pagination-nav {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 20px 0; /* Menambahkan padding agar tidak terlalu menempel dengan komponen lainnya */
+}
+
+.pagination {
+  list-style: none;
+  display: flex;
+  padding: 0;
+  gap: 10px; /* Menambahkan jarak antar item */
+}
+
+.page-item {
+  margin: 0;
+}
+
+.page-item.active .page-link {
+  background-color: #a2003b;
+  color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Menambahkan bayangan untuk efek elegan */
+}
+
+.page-link {
+  border: none;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease; /* Menambahkan efek transisi */
+}
+
+.page-link:hover {
+  background-color: #a2003b;
+  color: #fff;
+  transform: scale(1.05); /* Menambahkan efek zoom saat hover */
+}

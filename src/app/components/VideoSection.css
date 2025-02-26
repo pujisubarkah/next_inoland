@@ -1,0 +1,100 @@
+body {
+    font-family: 'Roboto', sans-serif;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .sidebar {
+    width: 20%;
+    background-color: #f4f4f4;
+    padding: 20px;
+  }
+  
+  .sidebar h2 {
+    font-family: 'Poppins, sans-serif';
+  }
+  
+  .sidebar ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .sidebar li {
+    margin: 10px 0;
+    cursor: pointer;
+  }
+  
+  .sidebar li:hover {
+    text-decoration: underline;
+  }
+  
+  .video-section {
+    width: 80%;
+    padding: 20px;
+  }
+  
+  .video-item {
+    margin-bottom: 40px;
+  }
+  
+  .certificate-section {
+    margin-top: 20px;
+  }
+  
+  .certificate-section button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .certificate-section button:hover {
+    background-color: #45a049;
+  }
+
+  .carousel-buttons {
+    display: flex;
+    justify-content: center; /* Posisikan tombol di tengah secara horizontal */
+    align-items: center; /* Posisikan tombol secara vertikal */
+    gap: 20px; /* Jarak antar tombol */
+    margin-top: 20px; /* Tambahkan margin atas agar tidak terlalu dekat dengan komponen lainnya */
+  }
+  
+
+  .carousel-button {
+    background-color: #8B0000; /* Warna dasar */
+    color: #fff; /* Warna teks */
+    border: none;
+    border-radius: 50%; /* Membuat tombol berbentuk lingkaran */
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Efek bayangan */
+    cursor: pointer;
+    transition: all 0.3s ease; /* Animasi untuk efek hover */
+    margin: 10px; /* Jarak antar tombol dengan elemen lainnya */
+    padding: 0; /* Tidak perlu padding tambahan karena ukuran tombol sudah diatur */
+  }
+  
+  .carousel-button:hover {
+    background-color: #A52A2A; /* Warna sedikit lebih terang saat dihover */
+    transform: scale(1.1); /* Membesarkan tombol sedikit saat dihover */
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2); /* Bayangan lebih tebal saat dihover */
+  }
+  
+  .carousel-button:active {
+    transform: scale(0.95); /* Sedikit mengecilkan tombol saat ditekan */
+  }
+  
+  .carousel-button svg {
+    font-size: 1.2rem; /* Mengatur ukuran ikon di dalam tombol */
+  }
+  
+  
