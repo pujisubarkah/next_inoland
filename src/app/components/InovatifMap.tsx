@@ -1,53 +1,76 @@
-import { useState, useEffect } from "react";
+// pages/inovatifMap.js
 
-import { supabase } from '../supabaseClient';
 
-function InovatifMap() {
-  const [provinces, setProvinces] = useState([]);
+import { useState } from "react";
+import axios from "axios"; // Import Axios
+
+export async function getServerSideProps() {
+  const selectedYear = 2023; // Default to 2023
+
+  try {
+    // Fetch provinces
+    const provincesResponse = await axios.get('/api/provinsis');
+    const provincesData = provincesResponse.data;
+
+    const provinceIds = Array.isArray(provincesData) ? provincesData.map((prov) => prov.id_provinsi).filter((id) => id) : [];
+
+    // Fetch innovation index for provinces
+    const provinsiResponse = await axios.get('/api/indeks_inovasi', {
+      params: {
+        indeks_tahun: selectedYear,
+        level: 'Provinsi',
+        id_provinsi: provinceIds,
+      },
+    });
+    const provinsiData = provinsiResponse.data;
+
+    const combinedData = provincesData.map((prov: { id_provinsi: number; nama: string; svg_path: string }) => ({
+      ...prov,
+      indeks_predikat: provinsiData.find((p: { id_provinsi: number; indeks_predikat: string }) => p.id_provinsi === prov.id_provinsi)?.indeks_predikat || 0,
+    }));
+
+    return {
+      props: {
+        provinces: combinedData,
+        selectedYear: selectedYear,
+      },
+    };
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error("Error fetching provinces:", err.message);
+    } else {
+      console.error("Error fetching provinces:", err);
+    }
+    return {
+      props: {
+        provinces: [],
+        selectedYear: selectedYear,
+      },
+    };
+  }
+}
+
+interface Province {
+  id_provinsi: number;
+  nama: string;
+  svg_path: string;
+  indeks_predikat: string;
+}
+
+interface InovatifMapProps {
+  provinces: Province[];
+  selectedYear: number;
+}
+
+function InovatifMap({ provinces, selectedYear: initialSelectedYear }: InovatifMapProps) {
   const [kabupaten, setKabupaten] = useState([]);
-  const [selectedProvinsi, setSelectedProvinsi] = useState(null);
-  const [selectedKabkot, setSelectedKabkot] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(initialSelectedYear);
+  const [selectedProvinsi, setSelectedProvinsi] = useState<number | null>(null);
   const [hoveredArea, setHoveredArea] = useState({ visible: false, text: '', x: 0, y: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
-  const [selectedYear, setSelectedYear] = useState(2023); // Default to 2023
 
-  useEffect(() => {
-    const fetchProvinces = async () => {
-        try {
-          const { data: provincesData, error: provincesError } = await supabase
-            .from('provinsis')
-            .select('*');
-  
-          if (provincesError) throw provincesError;
-  
-          const provinceIds = provincesData.map(prov => prov.id_provinsi).filter(id => id);
-          const { data: provinsiData, error: provinsiError } = await supabase
-            .from('indeks_inovasi')
-            .select('id_provinsi, indeks_predikat')
-            .eq('indeks_tahun', selectedYear)
-            .eq('level','Provinsi')
-            .in('id_provinsi', provinceIds);
-  
-          if (provinsiError) throw provinsiError;
-  
-          const combinedData = provincesData.map(prov => ({
-            ...prov,
-            indeks_predikat: provinsiData.find(p => p.id_provinsi === prov.id_provinsi)?.indeks_predikat || 0,
-          }));
-  
-          setProvinces(combinedData);
-        } catch (err) {
-          console.error("Error fetching provinces:", err.message);
-          alert(`Failed to fetch provinces: ${err.message}`);
-        }
-      };
-  
-      fetchProvinces();
-  }, [selectedYear]); // Runs when selectedYear changes
-
-  // Function to return choropleth color based on the selected year and its value
-  const getChoroplethColor = (innovationValue) => {
+  const getChoroplethColor = (innovationValue: string) => {
     if (innovationValue === 'Belum Mengisi Data') return '#708090'; // Red for "No Data"
     if (innovationValue === 'Sangat Inovatif') return '#009688'; // Dark Green
     if (innovationValue === 'Kurang Inovatif') return '#FF9800'; // Red
@@ -56,37 +79,40 @@ function InovatifMap() {
     return '#FFEDA0'; // Lightest color for undefined values
   };
 
-  const loadKabupaten = async (id_provinsi) => {
+  const loadKabupaten = async (id_provinsi: number) => {
     try {
-      const { data: kabupatenData, error: kabupatenError } = await supabase
-        .from('kabupaten_maps')
-        .select(`id_kabkot, id_provinsi, nama, svg_path`)
-        .eq('id_provinsi', id_provinsi);
+      const kabupatenResponse = await axios.get('/api/kabupaten_maps', {
+        params: { id_provinsi },
+      });
+      const kabupatenData = kabupatenResponse.data;
 
-      if (kabupatenError) throw kabupatenError;
+      const kabupatenIds = kabupatenData.map((kab: { id_kabkot: number }) => kab.id_kabkot);
+      const kabkotResponse = await axios.get('/api/indeks_inovasi', {
+        params: {
+          indeks_tahun: selectedYear,
+          id_kabkot: kabupatenIds,
+        },
+      });
+      const kabkotData = kabkotResponse.data;
 
-      const kabupatenIds = kabupatenData.map(kab => kab.id_kabkot);
-      const { data: kabkotData, error: kabkotError } = await supabase
-        .from('indeks_inovasi') // Using views table 'kabkot'
-        .select('id_kabkot, indeks_predikat, indeks_skor')
-        .eq('indeks_tahun', selectedYear);
-
-      if (kabkotError) throw kabkotError;
-
-      const combinedKabupaten = kabupatenData.map(kab => ({
+      const combinedKabupaten = kabupatenData.map((kab: { id_kabkot: number; svg_path: string }) => ({
         ...kab,
-        indeks_predikat: kabkotData.find(k => k.id_kabkot === kab.id_kabkot)?.indeks_predikat || 0,
-        indeks_skor: kabkotData.find(k => k.id_kabkot === kab.id_kabkot)?.indeks_skor || 0,
-      })).sort((a, b) => b.indeks_skor - a.indeks_skor);
+        indeks_predikat: kabkotData.find((k: { id_kabkot: number; indeks_predikat: string }) => k.id_kabkot === kab.id_kabkot)?.indeks_predikat || 0,
+        indeks_skor: kabkotData.find((k: { id_kabkot: number; indeks_skor: number }) => k.id_kabkot === kab.id_kabkot)?.indeks_skor || 0,
+      })).sort((a: { indeks_skor: number }, b: { indeks_skor: number }) => b.indeks_skor - a.indeks_skor);
 
       setKabupaten(combinedKabupaten);
       setSelectedProvinsi(id_provinsi);
     } catch (err) {
-      console.error("Error fetching kabupaten or inovasi:", err.message);
+      if (err instanceof Error) {
+        console.error("Error fetching kabupaten or inovasi:", err.message);
+      } else {
+        console.error("Error fetching kabupaten or inovasi:", err);
+      }
     }
   };
 
-  const handleMouseEnter = (event, text) => {
+  const handleMouseEnter = (_: React.MouseEvent<SVGPathElement>, text: string) => {
     const x = 750; // Adjust this value based on your box width and desired margin
     const y = 20; // Adjust this value based on your desired margin from the top
 
@@ -97,52 +123,45 @@ function InovatifMap() {
     setHoveredArea({ ...hoveredArea, visible: false });
   };
 
-  // Function to handle year button click
-  const handleYearClick = (year) => {
-    setSelectedYear(year);
-  };
-
   const totalPages = Math.ceil(kabupaten.length / itemsPerPage);
   const currentInovasi = kabupaten.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
   };
 
   return (
     <div className="app">
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        
-
         {/* Peta Provinsi */}
         <div style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '5px', width: '100%', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
           <h1 style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 'bold', fontSize: '2rem', textAlign: 'center', margin: '20px 0 10px 0' }}>
             PETA INDEKS INOVASI DAERAH
           </h1>
           <hr style={{ width: '100px', border: 'none', height: '2px', background: 'linear-gradient(to right, red, black, red)', margin: '0 auto 20px auto' }} />
-         {/* Year Buttons */}
-<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-  {[2019, 2020, 2021, 2022, 2023].map((year) => (
-    <button
-      key={year}
-      onClick={() => handleYearClick(year)}
-      style={{
-        padding: '10px',
-        margin: '0 5px',
-        backgroundColor: selectedYear === year ? '#8B0000' : '#333',
-        color: '#fff',
-        border: 'none',
-        borderRadius: '5px',
-        cursor: 'pointer',
-      }}
-    >
-      {year} {/* Show the year part */}
-    </button>
-  ))}
-</div>
+          {/* Year Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            {[2019, 2020, 2021, 2022, 2023].map((year) => (
+              <button
+                key={year}
+                onClick={() => setSelectedYear(year)}
+                style={{
+                  padding: '10px',
+                  margin: '0 5px',
+                  backgroundColor: selectedYear === year ? '#8B0000' : '#333',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                }}
+              >
+                {year} {/* Show the year part */}
+              </button>
+            ))}
+          </div>
 
           <svg baseProfile="tiny" viewBox="0 0 981.98602 441.06508" width="100%" height="auto" preserveAspectRatio="xMidYMid meet">
-            {provinces.map((province) => {
+            {Array.isArray(provinces) && provinces.map((province: { id_provinsi: number; nama: string; svg_path: string; indeks_predikat: string }) => {
               const innovationValue = province['indeks_predikat'] || 'Belum Mengisi Data'; // Get innovation value based on selected year
               return (
                 <path
@@ -163,217 +182,218 @@ function InovatifMap() {
         </div>
 
         {selectedProvinsi !== null && (
-  <div
-    style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 999,
-    }}
-  >
-    {/* Popup Box */}
-    <div
-      style={{
-        backgroundColor: '#fff',
-        borderRadius: '10px',
-        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-        width: '80vw',
-        maxWidth: '1000px',
-        padding: '20px',
-        position: 'relative',
-        animation: 'fadeIn 0.3s ease-in-out',
-      }}
-    >
-      {/* Close Button */}
-      <button
-        onClick={() => setSelectedProvinsi(null)} // Menutup popup
-        style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          background: 'transparent',
-          border: 'none',
-          fontSize: '20px',
-          cursor: 'pointer',
-        }}
-      >
-        ✖
-      </button>
-
-      {/* Judul */}
-      <h1
-        style={{
-          fontFamily: 'Poppins, sans-serif',
-          fontWeight: 'bold',
-          fontSize: '2rem',
-          textAlign: 'center',
-          marginBottom: '20px',
-        }}
-      >
-        Indeks Inovasi Daerah <br/> PROVINSI {provinces.find((prov) => prov.id_provinsi === selectedProvinsi)?.nama}
-      </h1>
-      <hr
-        style={{
-          width: '100px',
-          border: 'none',
-          height: '2px',
-          background: 'linear-gradient(to right, red, black, red)',
-          margin: '0 auto 20px auto',
-        }}
-      />
-
-      {/* Konten Popup */}
-      <div style={{ display: 'flex', gap: '10px' }}>
-        
-        {/* Peta Kabupaten */}
-        <svg
-          width="42%"
-          preserveAspectRatio="xMidYMid meet"
-          className="map-kabupaten"
-          baseProfile="tiny"
-          viewBox="0 0 800 600"
-          style={{border: '1px solid #ccc',
-            borderRadius: '10px',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',}}
-        >
-          {kabupaten.map((kab) =>
-            kab.svg_path ? (
-              <path
-                key={kab.id_kabkot}
-                d={kab.svg_path.replace(/"/g, '')}
-                fill={getChoroplethColor(kab.indeks_predikat || 0)}
-                stroke="black"
-                strokeWidth="1"
-              >
-                <title>{kab.nama}</title>
-              </path>
-            ) : null
-          )}
-        </svg>
-
-        {/* Tabel Daftar Inovasi */}
-        <div style={{ flexGrow: 1 }}>
-          {currentInovasi.length > 0 ? (
-            <table
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 999,
+            }}
+          >
+            {/* Popup Box */}
+            <div
               style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                margin: '20px 0',
-                fontSize: '1rem',
+                backgroundColor: '#fff',
+                borderRadius: '10px',
+                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                width: '80vw',
+                maxWidth: '1000px',
+                padding: '20px',
+                position: 'relative',
+                animation: 'fadeIn 0.3s ease-in-out',
               }}
             >
-              <thead>
-                <tr
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedProvinsi(null)} // Menutup popup
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                }}
+              >
+                ✖
+              </button>
+
+              {/* Judul */}
+              <h1
+                style={{
+                  fontFamily: 'Poppins, sans-serif',
+                  fontWeight: 'bold',
+                  fontSize: '2rem',
+                  textAlign: 'center',
+                  marginBottom: '20px',
+                }}
+              >
+                Indeks Inovasi Daerah <br /> PROVINSI {provinces.find((prov: { id_provinsi: number }) => prov.id_provinsi === selectedProvinsi)?.nama}
+              </h1>
+              <hr
+                style={{
+                  width: '100px',
+                  border: 'none',
+                  height: '2px',
+                  background: 'linear-gradient(to right, red, black, red)',
+                  margin: '0 auto 20px auto',
+                }}
+              />
+
+              {/* Konten Popup */}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {/* Peta Kabupaten */}
+                <svg
+                  width="42%"
+                  preserveAspectRatio="xMidYMid meet"
+                  className="map-kabupaten"
+                  baseProfile="tiny"
+                  viewBox="0 0 800 600"
                   style={{
-                    backgroundColor: '#444',
-                    color: 'white',
-                    textAlign: 'left',
+                    border: '1px solid #ccc',
+                    borderRadius: '10px',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                   }}
                 >
-                  <th style={{ padding: '15px', borderBottom: '1px solid #ddd' }}>
-                    Kabupaten/Kota
-                  </th>
-                  <th style={{ padding: '15px', borderBottom: '1px solid #ddd' }}>
-                    Skor IID
-                  </th>
-                  <th style={{ padding: '15px', borderBottom: '1px solid #ddd' }}>
-                    Predikat IID
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentInovasi.map((inovasi) => (
-                  <tr
-                    key={inovasi.id}
-                    style={{
-                      backgroundColor: '#fff',
-                      borderBottom: '1px solid #ddd',
-                    }}
-                  >
-                    <td style={{ padding: '15px' }}>{inovasi.nama}</td>
-                    <td style={{ padding: '15px' }}>{inovasi.indeks_skor}</td>
-                    <td style={{ padding: '15px' }}>{inovasi.indeks_predikat}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Kabupaten ini tidak memiliki inovasi.</p>
-          )}
+                  {kabupaten.map((kab: { id_kabkot: number; nama: string; svg_path: string; indeks_predikat: string }) =>
+                    kab.svg_path ? (
+                      <path
+                        key={kab.id_kabkot}
+                        d={kab.svg_path.replace(/"/g, '')}
+                        fill={getChoroplethColor(kab.indeks_predikat || '0')}
+                        stroke="black"
+                        strokeWidth="1"
+                      >
+                        <title>{kab.nama}</title>
+                      </path>
+                    ) : null
+                  )}
+                </svg>
 
-{totalPages > 1 && (
-                        <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
-                            {currentPage > 1 && (
-                                <button
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    style={{
-                                        padding: '5px 10px',
-                                        margin: '0 5px',
-                                        border: 'none',
-                                        borderRadius: '3px',
-                                        backgroundColor: '#f9f9f9',
-                                        color: '#000',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                    }}
-                                >
-                                    Prev
-                                </button>
-                            )}
-                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                                const pageNumber = currentPage > 3 ? currentPage - 2 + i : i + 1;
-                                return (
-                                    <button
-                                        key={pageNumber}
-                                        onClick={() => handlePageChange(pageNumber)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            margin: '0 5px',
-                                            border: 'none',
-                                            borderRadius: '3px',
-                                            backgroundColor: currentPage === pageNumber ? '#444' : '#f9f9f9',
-                                            color: currentPage === pageNumber ? '#fff' : '#000',
-                                            cursor: 'pointer',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                        }}
-                                    >
-                                        {pageNumber}
-                                    </button>
-                                );
-                            })}
-                            {currentPage < totalPages && (
-                                <button
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    style={{
-                                        padding: '5px 10px',
-                                        margin: '0 5px',
-                                        border: 'none',
-                                        borderRadius: '3px',
-                                        backgroundColor: '#f9f9f9',
-                                        color: '#000',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                    }}
-                                >
-                                    Next
-                                </button>
-                            )}
-                        </div>
-                    )}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-{/* Legend */}
-<div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                {/* Tabel Daftar Inovasi */}
+                <div style={{ flexGrow: 1 }}>
+                  {currentInovasi.length > 0 ? (
+                    <table
+                      style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                        margin: '20px 0',
+                        fontSize: '1rem',
+                      }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            backgroundColor: '#444',
+                            color: 'white',
+                            textAlign: 'left',
+                          }}
+                        >
+                          <th style={{ padding: '15px', borderBottom: '1px solid #ddd' }}>
+                            Kabupaten/Kota
+                          </th>
+                          <th style={{ padding: '15px', borderBottom: '1px solid #ddd' }}>
+                            Skor IID
+                          </th>
+                          <th style={{ padding: '15px', borderBottom: '1px solid #ddd' }}>
+                            Predikat IID
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentInovasi.map((inovasi: { id: number; nama: string; indeks_skor: number; indeks_predikat: string }) => (
+                          <tr
+                            key={inovasi.id}
+                            style={{
+                              backgroundColor: '#fff',
+                              borderBottom: '1px solid #ddd',
+                            }}
+                          >
+                            <td style={{ padding: '15px' }}>{inovasi.nama}</td>
+                            <td style={{ padding: '15px' }}>{inovasi.indeks_skor}</td>
+                            <td style={{ padding: '15px' }}>{inovasi.indeks_predikat}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p>Kabupaten ini tidak memiliki inovasi.</p>
+                  )}
+
+                  {totalPages > 1 && (
+                    <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
+                      {currentPage > 1 && (
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          style={{
+                            padding: '5px 10px',
+                            margin: '0 5px',
+                            border: 'none',
+                            borderRadius: '3px',
+                            backgroundColor: '#f9f9f9',
+                            color: '#000',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          }}
+                        >
+                          Prev
+                        </button>
+                      )}
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        const pageNumber = currentPage > 3 ? currentPage - 2 + i : i + 1;
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handlePageChange(pageNumber)}
+                            style={{
+                              padding: '5px 10px',
+                              margin: '0 5px',
+                              border: 'none',
+                              borderRadius: '3px',
+                              backgroundColor: currentPage === pageNumber ? '#444' : '#f9f9f9',
+                              color: currentPage === pageNumber ? '#fff' : '#000',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            }}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      })}
+                      {currentPage < totalPages && (
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          style={{
+                            padding: '5px 10px',
+                            margin: '0 5px',
+                            border: 'none',
+                            borderRadius: '3px',
+                            backgroundColor: '#f9f9f9',
+                            color: '#000',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          }}
+                        >
+                          Next
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Legend */}
+        <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ margin: '0 15px', display: 'flex', alignItems: 'center' }}>
             <div style={{ width: '20px', height: '20px', backgroundColor: '#009688', marginRight: '10px' }}></div>
             <span>Sangat Inovatif</span>
@@ -395,6 +415,5 @@ function InovatifMap() {
     </div>
   );
 }
-    
 
 export default InovatifMap;

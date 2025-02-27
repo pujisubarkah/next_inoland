@@ -1,38 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import NewsGrid from './NewsGrid';
-import Pagination from './Pagination';
-import { supabase } from '../supabaseClient'; // Import supabase client
+import axios from 'axios'; // Import Axios
 
 const Berita = () => {
   const [newsItems, setNewsItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8; // Tentukan jumlah item per halaman
-  const totalPages = Math.ceil(newsItems.length / itemsPerPage); // Calculate total pages dynamically
 
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-  };
-
-  // Fetch berita from Supabase
+  // Fetch berita from API
   const fetchBerita = async () => {
-    const { data, error } = await supabase
-      .from('beritas')
-      .select('*')
-      .order('date', { ascending: false });
+    try {
+      const response = await axios.get('/api/berita'); // Fetch data from the API
+      const data = response.data;
 
-    if (error) {
-      console.error('Error fetching news:', error);
-    } else {
       // Format data yang difetch agar sesuai dengan komponen `NewsGrid`
-      const formattedData = data.map((item) => ({
+      const formattedData = data.map((item: { id: number; title: string; image_url: string; deskripsi: string; date: string }) => ({
         id: item.id,
         title: item.title,
-        image: item.image_url, // Sesuaikan dengan atribut yang ada di API Supabase
+        image: item.image_url, // Sesuaikan dengan atribut yang ada di API
         description: item.deskripsi,
         date: item.date,
       }));
 
       setNewsItems(formattedData);
+    } catch (error) {
+      console.error('Error fetching news:', error);
     }
   };
 
@@ -41,44 +33,46 @@ const Berita = () => {
     fetchBerita();
   }, []);
 
- // Menghitung item yang ditampilkan pada halaman saat ini
- const currentItems = newsItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Menghitung item yang ditampilkan pada halaman saat ini
+  const currentItems = newsItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(newsItems.length / itemsPerPage); // Calculate total pages dynamically
 
- // Fungsi untuk mengganti halaman
- const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  // Fungsi untuk mengganti halaman
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
 
- return (
-  <div className="app">
-    <h1 style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 'bold', fontSize: '2rem', textAlign: 'center', margin: '20px 0 10px 0' }}>
-      BERITA INOVASI
-    </h1>
-    <hr style={{ width: '100px', border: 'none', height: '2px', background: 'linear-gradient(to right, red, black, red)', margin: '0 auto 20px auto' }} />
-    <NewsGrid items={currentItems} />
-    {totalPages > 1 && (
-        <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
+  return (
+    <div className="app">
+      <h1 className="font-poppins font-bold text-2xl text-center my-5">
+        BERITA INOVASI
+      </h1>
+      <hr className="w-24 border-none h-2 bg-gradient-to-r from-red-500 to-black mx-auto mb-5" />
+      <NewsGrid items={currentItems} />
+      {totalPages > 1 && (
+        <div className="mt-2 flex justify-center">
           {currentPage > 1 && (
-            <button onClick={() => handlePageChange(currentPage - 1)} style={{ padding: '5px 10px', margin: '0 5px', border: 'none', borderRadius: '3px', backgroundColor: '#f9f9f9', color: '#000', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <button onClick={() => handlePageChange(currentPage - 1)} className="px-3 py-1 mx-1 border rounded bg-gray-200 hover:bg-gray-300">
               Prev
             </button>
           )}
           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
             const pageNumber = currentPage > 3 ? currentPage - 2 + i : i + 1;
             return (
-              <button key={pageNumber} onClick={() => handlePageChange(pageNumber)} style={{ padding: '5px 10px', margin: '0 5px', border: 'none', borderRadius: '3px', backgroundColor: currentPage === pageNumber ? '#444' : '#f9f9f9', color: currentPage === pageNumber ? '#fff' : '#000', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+              <button key={pageNumber} onClick={() => handlePageChange(pageNumber)} className={`px-3 py-1 mx-1 border rounded ${currentPage === pageNumber ? 'bg-gray-800 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}>
                 {pageNumber}
               </button>
             );
           })}
           {currentPage < totalPages && (
-            <button onClick={() => handlePageChange(currentPage + 1)} style={{ padding: '5px 10px', margin: '0 5px', border: 'none', borderRadius: '3px', backgroundColor: '#f9f9f9', color: '#000', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <button onClick={() => handlePageChange(currentPage + 1)} className="px-3 py-1 mx-1 border rounded bg-gray-200 hover:bg-gray-300">
               Next
             </button>
           )}
         </div>
       )}
-  </div>
-);
+    </div>
+  );
 };
-
 
 export default Berita;
